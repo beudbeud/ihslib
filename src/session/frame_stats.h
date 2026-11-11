@@ -86,6 +86,8 @@ typedef struct IHS_FrameStatsAggregator {
     IHS_FrameStatsAccumulator accumulator;
     uint16_t lastSentFrameId;
     uint16_t lastDisplayedFrameId;
+    uint32_t netBase;               /* smallest (recv - send) seen, see fold_slot */
+    bool haveNetBase;
     uint32_t lastFrameTimestamp;    /* event 18 of the previous *completed* frame */
     bool fullReporting;             /* mirrors CStreamClient::sendFullFrameStats */
 } IHS_FrameStatsAggregator;

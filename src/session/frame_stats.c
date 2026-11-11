@@ -192,8 +192,20 @@ static void fold_slot(IHS_FrameStatsAggregator *agg, IHS_FrameStatsSlot *slot) {
 
     /* Network duration (stat 6): event 12 → 13. */
     if (has_event(slot, EV_FRAME_SEND) && has_event(slot, EV_FRAME_RECV)) {
-        accum_add(accum, 6,
-                  ticks_to_ms(slot->events[EV_FRAME_SEND], slot->events[EV_FRAME_RECV]));
+        /* Send is stamped by the host's clock, recv by ours: two unrelated
+         * epochs, so the raw difference is garbage (the host logged a
+         * 63,000,000 ms network leg and blamed the link every second).
+         * Report the delay above the fastest frame seen instead.
+         * ponytail: no clock sync, so the fixed part of the latency is not
+         * reported; derive the offset from ping round trips if the host's
+         * rate control turns out to need the absolute figure. */
+        uint32_t d = slot->events[EV_FRAME_RECV] - slot->events[EV_FRAME_SEND];
+        if (!agg->haveNetBase || (int32_t) (d - agg->netBase) < 0) {
+            agg->netBase = d;
+            agg->haveNetBase = true;
+        }
+        accum_add(accum, 6, ticks_to_ms(agg->netBase, d));
+        agg->netBase++; /* creep up one tick a frame so clock drift cannot inflate it for good */
     }
     /* Decode duration (stat 7): event 14 → 15. */
     if (has_event(slot, EV_DECODE_BEGIN) && has_event(slot, EV_DECODE_END)) {

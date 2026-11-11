@@ -147,5 +147,21 @@ int main(void) {
     assert(latest == 6);
 
     IHS_FrameStatsAggregatorDestroy(agg);
+
+    /* Host and client clocks have unrelated epochs: the network stat must be
+     * the delay above the fastest frame, not the raw cross-clock difference. */
+    agg = IHS_FrameStatsAggregatorCreate();
+    const uint32_t epochGap = 0xF0000000u;
+    const uint32_t extraMs[] = {4, 0, 8}; /* above the fastest frame: 0, 0, 8 */
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t t = MS_TICKS(20 * i);
+        IHS_FrameStatsRecordReceived(agg, 10 + i, t, t, t + epochGap + MS_TICKS(extraMs[i]), 1024, 0);
+        IHS_FrameStatsRecordStage(agg, 10 + i, (IHS_VideoFrameStage) 18, t + epochGap + MS_TICKS(10));
+        IHS_FrameStatsRecordComplete(agg, 10 + i, IHS_VideoFrameResultDisplayed);
+    }
+    folded = IHS_FrameStatsAggregatorDrain(agg, &latest);
+    assert(folded == 3);
+    expect_slot(agg, SLOT_NETWORK, 3, 8.0f / 3);
+    IHS_FrameStatsAggregatorDestroy(agg);
     return 0;
 }
