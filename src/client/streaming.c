@@ -182,6 +182,13 @@ static uint64_t StreamingRequestTimer(int runCount, void *context) {
     message.has_maximum_resolution_y = request.maxResolution.y > 0;
     message.maximum_resolution_y = request.maxResolution.y;
 
+    /* Left out, the host logs "Maximum capture: WxH -nan FPS". */
+    if (request.maxFps > 0) {
+        message.has_maximum_framerate_numerator = message.has_maximum_framerate_denominator = true;
+        message.maximum_framerate_numerator = request.maxFps;
+        message.maximum_framerate_denominator = 1;
+    }
+
     message.has_enable_audio_streaming = true;
     message.enable_audio_streaming = request.streamingEnable.audio;
 

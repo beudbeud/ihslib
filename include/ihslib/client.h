@@ -86,6 +86,8 @@ typedef struct IHS_StreamingRequest {
         int32_t x;
         int32_t y;
     } maxResolution;
+    /** Cap on the host's capture framerate, frames per second. 0: not sent. */
+    int32_t maxFps;
     int32_t audioChannelCount;
     IHS_StreamInterface streamingInterface;
     /**
