@@ -204,13 +204,13 @@ static uint64_t StreamingRequestTimer(int runCount, void *context) {
     message.stream_desktop = request.streamDesktop;
 
     message.has_form_factor = true;
-    message.form_factor = k_EStreamDeviceFormFactorTV;
+    message.form_factor = request.formFactor ? (EStreamDeviceFormFactor) request.formFactor : k_EStreamDeviceFormFactorTV;
 
     /* Without a device_version the host ignores maximum_resolution_x/y and streams
      * at its own capture size. It does NOT gate the advertised codec list on this,
      * nor on anything else in this message: CMsgRemoteDeviceStreamingRequest has no
      * codec field at all. The host offers what its encoder can produce. */
-    message.device_version = "1.1.0";
+    message.device_version = (char *) (request.deviceVersion ? request.deviceVersion : "1.1.0");
 
     message.has_device_token = true;
     message.device_token.data = client->base.deviceToken;

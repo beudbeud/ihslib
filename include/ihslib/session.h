@@ -48,6 +48,8 @@ typedef struct IHS_SessionConfig {
     uint32_t maxHeight;
     uint32_t maxFps;
     uint32_t maxBitrateKbps;
+    /** EStreamDeviceFormFactor announced in the client caps. 0: TV. */
+    int formFactor;
 } IHS_SessionConfig;
 
 typedef struct IHS_StreamSessionCallbacks {

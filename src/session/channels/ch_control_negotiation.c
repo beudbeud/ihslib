@@ -231,7 +231,7 @@ static void OnNegotiationInit(IHS_SessionChannel *channel, const CNegotiationIni
     if (ihsConf.enableHevc) {
         PROTOBUF_C_SET_VALUE(clientCaps, supports_video_hevc_obsolete, true);
     }
-    PROTOBUF_C_SET_VALUE(clientCaps, form_factor, k_EStreamDeviceFormFactorTV);
+    PROTOBUF_C_SET_VALUE(clientCaps, form_factor, ihsConf.formFactor ? ihsConf.formFactor : k_EStreamDeviceFormFactorTV);
 
     CNegotiationSetConfigMsg response = CNEGOTIATION_SET_CONFIG_MSG__INIT;
     response.config = &config;

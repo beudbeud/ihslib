@@ -94,6 +94,10 @@ typedef struct IHS_StreamingRequest {
      * hosts offer HEVC.
      */
     bool streamDesktop;
+    /** Client version string announced to the host. NULL: "1.1.0". Not copied. */
+    const char *deviceVersion;
+    /** EStreamDeviceFormFactor: 1 phone, 2 tablet, 3 computer, 4 TV, 5 VR headset. 0: TV. */
+    int formFactor;
     /**
      * Reserve this many gamepad slots in the streaming request, the way Steam's
      * own client does. The host allocates the slots up front instead of learning
