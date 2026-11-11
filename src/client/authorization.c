@@ -38,6 +38,10 @@ typedef struct IHS_AuthorizationState {
     char pin[16];
     uint32_t requestId;
     IHS_AuthorizationKeyExchange keyExchange;
+    /* Set by IHS_ClientAuthorizationCancel, read by the request timer, both
+     * under the base lock: a retransmit after the cancel would reopen the
+     * host's PIN dialog. */
+    bool cancelled;
 } IHS_AuthorizationState;
 
 static uint64_t AuthorizationRequestTimer(int runCount, void *data);
@@ -75,19 +79,26 @@ bool IHS_ClientAuthorizationRequest(IHS_Client *client, const IHS_HostInfo *host
 }
 
 bool IHS_ClientAuthorizationCancel(IHS_Client *client) {
-    if (!client->taskHandles.authorization) {
+    /* Callable from any thread, typically not the one running the request.
+     * The cleanup clears the handle under the base lock before freeing the
+     * state, so a handle seen under it is alive. The task is not stopped from
+     * here: IHS_TimerTaskStop takes the timer mutex, which the timer thread
+     * holds while its cleanup waits for the base lock. The request timer ends
+     * the task itself on its next run instead. */
+    IHS_BaseLock(&client->base);
+    IHS_TimerTask *task = client->taskHandles.authorization;
+    if (!task) {
+        IHS_BaseUnlock(&client->base);
         return false;
     }
-    IHS_TimerTask *task = client->taskHandles.authorization;
     IHS_AuthorizationState *state = IHS_TimerTaskGetContext(task);
+    state->cancelled = true;
 
     CMsgRemoteDeviceAuthorizationCancelRequest request = CMSG_REMOTE_DEVICE_AUTHORIZATION_CANCEL_REQUEST__INIT;
-    IHS_SocketAddress address = state->host.address;
-
-    IHS_TimerTaskStop(task);
-
-    IHS_ClientSend(client, address, k_ERemoteDeviceAuthorizationCancelRequest, (ProtobufCMessage *) &request);
-    return true;
+    bool sent = IHS_ClientSend(client, state->host.address, k_ERemoteDeviceAuthorizationCancelRequest,
+                               (ProtobufCMessage *) &request);
+    IHS_BaseUnlock(&client->base);
+    return sent;
 }
 
 void IHS_ClientAuthorizationCallback(IHS_Client *client, const IHS_SocketAddress *address,
@@ -168,6 +179,13 @@ static uint64_t AuthorizationRequestTimer(int runCount, void *data) {
     (void) runCount;
     IHS_AuthorizationState *state = data;
     IHS_Client *client = state->client;
+    /* Held to the end, so a cancel lands either before this request or after
+     * it, never in between. */
+    IHS_BaseLock(&client->base);
+    if (state->cancelled) {
+        IHS_BaseUnlock(&client->base);
+        return 0;
+    }
     uint8_t pubKey[384];
     size_t pubKeyLen = sizeof(pubKey);
     IHS_ClientAuthorizationPubKey(client, state->host.universe, pubKey, &pubKeyLen);
@@ -201,6 +219,7 @@ static uint64_t AuthorizationRequestTimer(int runCount, void *data) {
 
     IHS_SocketAddress address = state->host.address;
     IHS_ClientSend(client, address, k_ERemoteDeviceAuthorizationRequest, (ProtobufCMessage *) &request);
+    IHS_BaseUnlock(&client->base);
     return 1000;
 }
 
