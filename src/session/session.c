@@ -228,6 +228,12 @@ bool IHS_SessionQueuePacket(IHS_Session *session, IHS_SessionPacket *packet, boo
 }
 
 bool IHS_SessionSendControlMessage(IHS_Session *session, EStreamControlMessage type, const ProtobufCMessage *message) {
+    /* Every caller is client input or status (mouse, keyboard, touch, cursor,
+     * decoder info). Sent before the handshake it takes control packet id 0,
+     * the handshake goes out as id 1 and the host abandons the session
+     * (STREAM_OLDER_PACKET_ID): a mouse-motion event from the app's own window
+     * creation was enough. Same rule as the HID path: nothing before streaming. */
+    if (!IHS_SessionStreaming(session)) return false;
     IHS_SessionChannel *channel = IHS_SessionChannelFor(session, IHS_SessionChannelIdControl);
     return IHS_SessionChannelControlSend(channel, type, message, IHS_PACKET_ID_NEXT);
 }
